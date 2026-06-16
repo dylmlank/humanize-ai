@@ -32,12 +32,16 @@
         <button class="seg-btn" data-mode="casual">Casual</button>
       </div>
       <label class="toggle">
-        <input type="checkbox" id="useLLM" checked />
+        <input type="checkbox" id="useLLM" />
         <span>Deep rewrite (AI)</span>
       </label>
       <label class="toggle">
-        <input type="checkbox" id="untilUndetectable" checked />
+        <input type="checkbox" id="untilUndetectable" />
         <span>Loop until undetectable</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="showDiff" checked />
+        <span>Highlight changes</span>
       </label>
     </div>
 
@@ -57,14 +61,29 @@
       <div class="panel">
         <div class="panel-head">
           <span>Humanized</span>
-          <span class="meta"><span id="outWords">0</span> words</span>
+          <span class="meta"><span id="outWords">0</span> words · <span id="changePct">0%</span> changed</span>
         </div>
-        <textarea id="output" placeholder="Your humanized text will appear here..." readonly></textarea>
+        <div id="output" class="output-rich" placeholder="Your humanized text will appear here..."></div>
         <div class="panel-foot">
           <button id="copyBtn" class="ghost-btn">Copy</button>
           <span id="status" class="status"></span>
         </div>
       </div>
+    </div>
+
+    <div id="scoreStrip" class="score-strip" hidden>
+      <div class="score-item">
+        <div class="score-label">Original</div>
+        <div class="score-val" id="beforeScore">–</div>
+        <div class="score-tag" id="beforeTag"></div>
+      </div>
+      <div class="score-arrow">→</div>
+      <div class="score-item">
+        <div class="score-label">Humanized</div>
+        <div class="score-val" id="afterScore">–</div>
+        <div class="score-tag" id="afterTag"></div>
+      </div>
+      <div class="score-delta" id="scoreDelta"></div>
     </div>
 
     <section id="detectorCard" class="detector">
@@ -91,6 +110,7 @@
   <script src="humanize.js"></script>
   <script src="detector.js"></script>
   <script src="render-detector.js"></script>
+  <script src="diff.js"></script>
   <script src="humanize-loop.js"></script>
   <script src="app.js"></script>
 </body>
