@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Humanize AI — Make AI text sound human</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">✦</span>
+      <span class="brand-name">Humanize<span class="accent">AI</span></span>
+    </div>
+    <nav class="topnav">
+      <button id="themeToggle" class="icon-btn" title="Toggle theme" aria-label="Toggle theme">🌙</button>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Turn AI text into <span class="accent">natural human writing</span></h1>
+      <p class="sub">Paste AI-generated content and rewrite it to read naturally — clearer, simpler, less robotic.</p>
+    </section>
+
+    <div class="controls">
+      <div class="seg" role="tablist" aria-label="Mode">
+        <button class="seg-btn active" data-mode="balanced">Balanced</button>
+        <button class="seg-btn" data-mode="simple">Simple</button>
+        <button class="seg-btn" data-mode="casual">Casual</button>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="useLLM" />
+        <span>Deep rewrite (AI)</span>
+      </label>
+    </div>
+
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-head">
+          <span>Your text</span>
+          <span class="meta"><span id="inWords">0</span> words</span>
+        </div>
+        <textarea id="input" placeholder="Paste your AI-generated text here..."></textarea>
+        <div class="panel-foot">
+          <button id="sampleBtn" class="ghost-btn">Load sample</button>
+          <button id="clearBtn" class="ghost-btn">Clear</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <span>Humanized</span>
+          <span class="meta"><span id="outWords">0</span> words</span>
+        </div>
+        <textarea id="output" placeholder="Your humanized text will appear here..." readonly></textarea>
+        <div class="panel-foot">
+          <button id="copyBtn" class="ghost-btn">Copy</button>
+          <span id="status" class="status"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button id="humanizeBtn" class="primary-btn">Humanize</button>
+    </div>
+
+    <p class="disclaimer">No tool can guarantee bypassing every AI detector, and detectors change constantly. This rewrites text to read more naturally — use it to improve clarity, not to deceive.</p>
+  </main>
+
+  <script src="humanize.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
