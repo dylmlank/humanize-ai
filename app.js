@@ -97,11 +97,13 @@
   // Regenerate from scratch: summarize -> rewrite fresh from the notes, then run
   // the rule-based humanizer as a finishing pass. Breaks the AI sentence
   // skeleton entirely (the user's concept). Returns the final humanized text.
-  async function llmRegenerate(text, mode) {
+  // `feedback` (optional) names the AI tells that survived a prior round so the
+  // regeneration prompt can target them; `round` escalates aggressiveness.
+  async function llmRegenerate(text, mode, feedback, round) {
     const res = await fetch("/api/regenerate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, mode }),
+      body: JSON.stringify({ text, mode, feedback, round }),
     });
     if (!res.ok) throw new Error("LLM unavailable");
     const data = await res.json();
@@ -167,11 +169,15 @@
 
     try {
       if (loop) {
+        const regen = $("regenerate").checked && useLLM;
         const res = await window.loopHumanize(text, {
           mode,
           target: 30,
           maxRounds: useLLM ? 5 : 3,
-          llm: useLLM ? llmRewrite : null,
+          // Regenerate-loop (rebuild from meaning each round) when "Rewrite from
+          // scratch" is on; otherwise single-pass LLM rewrite; else local-only.
+          regenerate: regen ? llmRegenerate : null,
+          llm: useLLM && !regen ? llmRewrite : null,
           onRound: (info) => {
             setOutput(info.text, text);
             setStatus(`Round ${info.round + 1} · ${info.via} · score ${info.score}`);

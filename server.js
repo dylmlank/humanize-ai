@@ -148,13 +148,22 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: "No OPENROUTER_API_KEY set" }));
     }
     try {
-      const { text, mode } = JSON.parse((await readBody(req)) || "{}");
+      const { text, mode, feedback, round } = JSON.parse((await readBody(req)) || "{}");
       if (!text) throw new Error("no text");
       const notes = await callOpenRouter(text, SUMMARIZE_PROMPT);
-      const out = await callOpenRouter(
-        notes,
-        REGENERATE_PROMPTS[mode] || REGENERATE_PROMPTS.balanced
-      );
+      // Escalate when looping: feed back which AI tells survived, and push
+      // harder each round so resistant text gets broken up more aggressively.
+      let sys = REGENERATE_PROMPTS[mode] || REGENERATE_PROMPTS.balanced;
+      if (round > 0) {
+        sys += " The previous attempt STILL read like AI. Be far more aggressive: " +
+          "break uniform rhythm hard (some 3-word sentences, some long), start " +
+          "sentences differently, use plain everyday words, and add natural " +
+          "contractions.";
+      }
+      if (feedback) {
+        sys += ` Specifically fix these AI tells the detector still found: ${String(feedback).slice(0, 200)}.`;
+      }
+      const out = await callOpenRouter(notes, sys);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ text: out, notes }));
     } catch (e) {
