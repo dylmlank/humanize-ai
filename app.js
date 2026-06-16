@@ -94,6 +94,22 @@
     return data.text;
   }
 
+  // Regenerate from scratch: summarize -> rewrite fresh from the notes, then run
+  // the rule-based humanizer as a finishing pass. Breaks the AI sentence
+  // skeleton entirely (the user's concept). Returns the final humanized text.
+  async function llmRegenerate(text, mode) {
+    const res = await fetch("/api/regenerate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, mode }),
+    });
+    if (!res.ok) throw new Error("LLM unavailable");
+    const data = await res.json();
+    if (!data.text) throw new Error("Empty response");
+    // Finishing pass: apply our deterministic guidelines on top of the LLM draft.
+    return window.Humanizer.humanize(data.text, mode);
+  }
+
   // (systemPrompt, userText) => rewritten text, via the server proxy.
   async function llmRewrite(systemPrompt, userText) {
     const res = await fetch("/api/rewrite", {
@@ -171,9 +187,11 @@
       } else {
         result = window.Humanizer.humanize(text, mode);
         if (useLLM) {
-          setStatus("Deep rewriting…");
-          try { result = await llmHumanize(text, mode); }
-          catch { setStatus("AI unavailable — used local rewrite", 2500); }
+          const regen = $("regenerate").checked;
+          setStatus(regen ? "Summarizing & rewriting…" : "Deep rewriting…");
+          try {
+            result = regen ? await llmRegenerate(text, mode) : await llmHumanize(text, mode);
+          } catch { setStatus("AI unavailable — used local rewrite", 2500); }
         }
         setStatus("Done", 1500);
       }

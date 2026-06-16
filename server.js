@@ -38,6 +38,25 @@ const PROMPTS = {
   casual: "Rewrite in a casual, conversational human tone with contractions." + RULES,
 };
 
+// "Regenerate from scratch" — extract the meaning, then rewrite fresh so the
+// AI's sentence skeleton (itself a tell) is gone. Two prompts, run in sequence.
+const SUMMARIZE_PROMPT =
+  "Read the text and list its key points as terse bullet notes — facts and " +
+  "claims only, no style, no full sentences. Output only the bullets.";
+const REGENERATE_RULES =
+  " Write like a real person, not an AI. Vary sentence length sharply (mix very " +
+  "short sentences with longer ones). Use contractions. Be concrete and direct. " +
+  "Do NOT use: hyphens or dashes, the words 'leverage/delve/foster/seamless/" +
+  "robust/pivotal/realm/landscape/crucial', phrases like 'in today's world', " +
+  "'it is important to note', 'plays a role', 'not just X but Y', or enumerated " +
+  "'First,/Second,/Finally,' scaffolding. No formulaic intro or conclusion. " +
+  "Just write the content naturally. Output only the final text.";
+const REGENERATE_PROMPTS = {
+  balanced: "Using these notes, write a natural, human paragraph." + REGENERATE_RULES,
+  simple: "Using these notes, write in plain, simple language a person would use." + REGENERATE_RULES,
+  casual: "Using these notes, write in a casual, conversational voice." + REGENERATE_RULES,
+};
+
 const MIME = {
   ".html": "text/html", ".css": "text/css", ".js": "text/javascript",
   ".json": "application/json",
@@ -114,6 +133,30 @@ const server = http.createServer(async (req, res) => {
       const out = await callOpenRouter(text, system || PROMPTS.balanced);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ text: out }));
+    } catch (e) {
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // Regenerate from scratch: summarize -> rewrite fresh from the notes. This
+  // breaks the AI's sentence structure entirely, not just its word choices.
+  if (req.method === "POST" && req.url === "/api/regenerate") {
+    if (!KEY) {
+      res.writeHead(503, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "No OPENROUTER_API_KEY set" }));
+    }
+    try {
+      const { text, mode } = JSON.parse((await readBody(req)) || "{}");
+      if (!text) throw new Error("no text");
+      const notes = await callOpenRouter(text, SUMMARIZE_PROMPT);
+      const out = await callOpenRouter(
+        notes,
+        REGENERATE_PROMPTS[mode] || REGENERATE_PROMPTS.balanced
+      );
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ text: out, notes }));
     } catch (e) {
       res.writeHead(502, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: e.message }));
