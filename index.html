@@ -100,6 +100,20 @@
       </div>
     </section>
 
+    <section id="learningsCard" class="detector">
+      <div class="detector-head">
+        <span>🧠 What it has learned</span>
+        <span class="meta" id="learnCount" style="margin-left:auto"></span>
+        <button id="deepRetroBtn" class="ghost-btn" title="Run a deeper LLM reflection on the last run">Reflect</button>
+        <button id="clearLearnBtn" class="ghost-btn">Clear</button>
+      </div>
+      <div id="learningsBody" class="detector-body">
+        <p class="detector-empty">After each humanize, the tool reflects on what the
+          detector still caught and learns new AI tells &amp; fixes — which then improve
+          future detection automatically.</p>
+      </div>
+    </section>
+
     <div class="action-row">
       <button id="humanizeBtn" class="primary-btn">Humanize</button>
     </div>
@@ -107,6 +121,7 @@
     <p class="disclaimer">No tool can guarantee bypassing every AI detector, and detectors change constantly. This rewrites text to read more naturally — use it to improve clarity, not to deceive.</p>
   </main>
 
+  <script src="learnings.js"></script>
   <script src="humanize.js"></script>
   <script src="bigrams.js"></script>
   <script src="predictability.js"></script>
@@ -114,6 +129,7 @@
   <script src="render-detector.js"></script>
   <script src="diff.js"></script>
   <script src="humanize-loop.js"></script>
+  <script src="retrospective.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

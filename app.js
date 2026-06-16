@@ -191,7 +191,43 @@
     detectTarget = "output";
     syncDetectTabs();
     runDetect();
+
+    // Retrospective: reflect on this run and learn from it (non-blocking).
+    // Use the richer LLM reflection only when "Deep rewrite (AI)" is enabled.
+    runRetrospective(text, result, $("useLLM").checked);
   };
+
+  // ---- Retrospective: learn from each run ----
+  // After every humanize, reflect on what the detector still flagged in the
+  // output and persist learnings (new tells + replacements) that load into
+  // future runs. Uses the LLM when available, else a deterministic fallback.
+  // useLLM=false: fast, free, offline rule-based reflection (runs on every
+  // humanize). useLLM=true: deeper LLM reflection (the explicit "Reflect" button
+  // or when "Deep rewrite (AI)" is on) — richer learnings, costs an API call.
+  async function runRetrospective(input, output, useLLM) {
+    if (!window.Retrospective || !window.Learnings) return;
+    try {
+      const after = window.Detector.detect(output);
+      const survived = (after.signals || []).filter((s) => s.contribution >= 25);
+      const run = {
+        input,
+        output,
+        beforeScore: window.Detector.detect(input).score,
+        afterScore: after.score,
+        survivedSignals: survived,
+      };
+      const reflector = useLLM ? llmRewrite : null;
+      const res = await window.Retrospective.reflect(run, reflector);
+      if (res && res.added) {
+        const a = res.added;
+        const n = a.phrases + a.replacements + a.notes;
+        if (n > 0) {
+          setStatus(`Learned ${a.phrases} tell(s), ${a.replacements} fix(es)`, 3000);
+          renderLearnings();
+        }
+      }
+    } catch { /* learning is best-effort; never block the user */ }
+  }
 
   // ---- Detector ----
   let detectTarget = "input";
@@ -212,4 +248,45 @@
     b.onclick = () => { detectTarget = b.dataset.target; syncDetectTabs(); runDetect(); };
   });
   $("detectBtn").onclick = runDetect;
+
+  // ---- Learnings panel ----
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  function renderLearnings() {
+    const body = $("learningsBody");
+    if (!window.Learnings) { return; }
+    const d = window.Learnings.load();
+    const total = d.phrases.length + d.replacements.length;
+    $("learnCount").textContent = total
+      ? `${d.phrases.length} tells · ${d.replacements.length} fixes` : "";
+    if (!total && !d.notes.length) {
+      body.innerHTML =
+        '<p class="detector-empty">After each humanize, the tool reflects on what the ' +
+        'detector still caught and learns new AI tells &amp; fixes — which then improve ' +
+        'future detection automatically.</p>';
+      return;
+    }
+    const chips = (arr, cls) =>
+      arr.slice(-30).map((x) => `<span class="learn-chip ${cls}">${esc(x)}</span>`).join("");
+    const repChips = d.replacements.slice(-30)
+      .map((r) => `<span class="learn-chip fix">${esc(r.from)} → ${esc(r.to)}</span>`).join("");
+    body.innerHTML =
+      (d.phrases.length ? `<div class="learn-group"><b>Learned AI tells</b><div class="learn-chips">${chips(d.phrases, "tell")}</div></div>` : "") +
+      (d.replacements.length ? `<div class="learn-group"><b>Learned fixes</b><div class="learn-chips">${repChips}</div></div>` : "") +
+      (d.notes.length ? `<div class="learn-group"><b>Notes</b><ul class="learn-notes">${d.notes.slice(-10).map((n) => `<li>${esc(n)}</li>`).join("")}</ul></div>` : "");
+  }
+
+  $("clearLearnBtn").onclick = () => {
+    if (window.Learnings) { window.Learnings.clear(); renderLearnings(); setStatus("Learnings cleared", 1500); }
+  };
+  // "Reflect" runs a deeper LLM reflection on the current input/output on demand.
+  $("deepRetroBtn").onclick = async () => {
+    const inp = input.value.trim(), outp = getOutput();
+    if (!inp || !outp) { setStatus("Humanize something first", 2000); return; }
+    setStatus("Reflecting…");
+    await runRetrospective(inp, outp, true);  // explicit Reflect = deep LLM pass
+    renderLearnings();
+    setStatus("Reflection done", 1500);
+  };
+
+  renderLearnings();
 })();

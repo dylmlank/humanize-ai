@@ -198,3 +198,16 @@ textarea {
   padding: 1px 6px; min-width: 26px; text-align: center;
 }
 .sent-text { color: var(--text); }
+
+/* Learnings panel — the retrospective's accumulated knowledge. */
+.learn-group { margin-bottom: 14px; }
+.learn-group > b { font-size: 13px; display: block; margin-bottom: 6px; }
+.learn-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.learn-chip {
+  font-size: 12px; padding: 3px 9px; border-radius: 999px;
+  background: var(--ghost); border: 1px solid var(--border); color: var(--text);
+}
+.learn-chip.tell { border-color: color-mix(in srgb, #ef4444 40%, var(--border)); }
+.learn-chip.fix  { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.learn-notes { margin: 4px 0 0 18px; font-size: 13px; color: var(--muted); }
+.learn-notes li { margin: 2px 0; }
