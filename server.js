@@ -7,19 +7,35 @@ const fs = require("fs");
 const path = require("path");
 
 const PORT = process.env.PORT || 5180;
-const KEY = process.env.OPENROUTER_API_KEY || "";
+
+// Key resolution order: env var, then a gitignored local file (key.txt).
+// Never hardcode the key — keep it out of version control.
+function resolveKey() {
+  if (process.env.OPENROUTER_API_KEY) return process.env.OPENROUTER_API_KEY.trim();
+  try {
+    return fs.readFileSync(path.join(__dirname, "key.txt"), "utf8").trim();
+  } catch {
+    return "";
+  }
+}
+const KEY = resolveKey();
 
 // Free models, tried in order on rate-limit/error.
 const MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
-  "google/gemma-2-9b-it:free",
-  "mistralai/mistral-7b-instruct:free",
+  "qwen/qwen3-next-80b-a3b-instruct:free",
+  "google/gemma-4-31b-it:free",
+  "openai/gpt-oss-20b:free",
 ];
 
+const RULES =
+  " Keep it concise and simple. Use short, plain sentences with varied length. " +
+  "Do NOT use hyphens or dashes of any kind. Cut filler and AI cliches. " +
+  "Keep the meaning. Output only the rewrite.";
 const PROMPTS = {
-  balanced: "Rewrite to sound natural and human. Vary sentence length, cut filler and AI cliches, keep the meaning. Output only the rewrite.",
-  simple: "Rewrite in plain, simple language a person would actually use. Short clear sentences. Keep meaning. Output only the rewrite.",
-  casual: "Rewrite in a casual, conversational human tone. Contractions, varied rhythm, no corporate filler. Keep meaning. Output only the rewrite.",
+  balanced: "Rewrite to sound natural and human." + RULES,
+  simple: "Rewrite in plain, simple language a person would actually use." + RULES,
+  casual: "Rewrite in a casual, conversational human tone with contractions." + RULES,
 };
 
 const MIME = {
@@ -27,8 +43,7 @@ const MIME = {
   ".json": "application/json",
 };
 
-async function callOpenRouter(text, mode) {
-  const sys = PROMPTS[mode] || PROMPTS.balanced;
+async function callOpenRouter(text, sys) {
   let lastErr = "no models";
   for (const model of MODELS) {
     try {
@@ -60,26 +75,49 @@ async function callOpenRouter(text, mode) {
   throw new Error(lastErr);
 }
 
+const readBody = (req) =>
+  new Promise((resolve) => {
+    let b = "";
+    req.on("data", (c) => (b += c));
+    req.on("end", () => resolve(b));
+  });
+
 const server = http.createServer(async (req, res) => {
+  // Mode-based humanize (single pass).
   if (req.method === "POST" && req.url === "/api/humanize") {
     if (!KEY) {
       res.writeHead(503, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ error: "No OPENROUTER_API_KEY set" }));
     }
-    let body = "";
-    req.on("data", (c) => (body += c));
-    req.on("end", async () => {
-      try {
-        const { text, mode } = JSON.parse(body || "{}");
-        if (!text) throw new Error("no text");
-        const out = await callOpenRouter(text, mode || "balanced");
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ text: out }));
-      } catch (e) {
-        res.writeHead(502, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: e.message }));
-      }
-    });
+    try {
+      const { text, mode } = JSON.parse((await readBody(req)) || "{}");
+      if (!text) throw new Error("no text");
+      const out = await callOpenRouter(text, PROMPTS[mode] || PROMPTS.balanced);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ text: out }));
+    } catch (e) {
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // Arbitrary-system-prompt rewrite — used by the "loop until undetectable" loop.
+  if (req.method === "POST" && req.url === "/api/rewrite") {
+    if (!KEY) {
+      res.writeHead(503, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: "No OPENROUTER_API_KEY set" }));
+    }
+    try {
+      const { text, system } = JSON.parse((await readBody(req)) || "{}");
+      if (!text) throw new Error("no text");
+      const out = await callOpenRouter(text, system || PROMPTS.balanced);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ text: out }));
+    } catch (e) {
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 

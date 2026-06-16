@@ -68,27 +68,63 @@
     return data.text;
   }
 
+  // (systemPrompt, userText) => rewritten text, via the server proxy.
+  async function llmRewrite(systemPrompt, userText) {
+    const res = await fetch("/api/rewrite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ system: systemPrompt, text: userText }),
+    });
+    if (!res.ok) throw new Error("LLM unavailable");
+    const data = await res.json();
+    if (!data.text) throw new Error("Empty response");
+    return data.text;
+  }
+
   const btn = $("humanizeBtn");
   btn.onclick = async () => {
     const text = input.value.trim();
     if (!text) { setStatus("Paste some text first", 2000); return; }
 
-    // Always run the instant local pass.
-    let result = window.Humanizer.humanize(text, mode);
+    const useLLM = $("useLLM").checked;
+    const loop = $("untilUndetectable").checked;
+    btn.disabled = true;
+    let result;
 
-    if ($("useLLM").checked) {
-      btn.disabled = true;
-      setStatus("Deep rewriting…");
-      try {
-        result = await llmHumanize(text, mode);
-        setStatus("Done (AI)", 2000);
-      } catch (e) {
-        setStatus("AI unavailable — used local rewrite", 2500);
-      } finally {
-        btn.disabled = false;
+    try {
+      if (loop) {
+        const res = await window.loopHumanize(text, {
+          mode,
+          target: 30,
+          maxRounds: useLLM ? 5 : 3,
+          llm: useLLM ? llmRewrite : null,
+          onRound: (info) => {
+            output.value = info.text;
+            outWords.textContent = wc(info.text);
+            setStatus(`Round ${info.round + 1} · ${info.via} · score ${info.score}`);
+          },
+        });
+        result = res.text;
+        setStatus(
+          res.hitTarget
+            ? `Undetectable ✓ (${res.score}% AI, ${res.rounds} rounds)`
+            : `Best effort: ${res.score}% AI after ${res.rounds} rounds`,
+          4000
+        );
+      } else {
+        result = window.Humanizer.humanize(text, mode);
+        if (useLLM) {
+          setStatus("Deep rewriting…");
+          try { result = await llmHumanize(text, mode); }
+          catch { setStatus("AI unavailable — used local rewrite", 2500); }
+        }
+        setStatus("Done", 1500);
       }
-    } else {
-      setStatus("Done", 1500);
+    } catch (e) {
+      if (!result) result = window.Humanizer.humanize(text, mode);
+      setStatus("AI unavailable — used local rewrite", 2500);
+    } finally {
+      btn.disabled = false;
     }
 
     output.value = result;
