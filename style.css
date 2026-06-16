@@ -104,6 +104,44 @@ textarea {
 .primary-btn:active { transform: translateY(1px); }
 .primary-btn:disabled { opacity: .6; cursor: not-allowed; }
 
+/* Detector */
+.detector {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: var(--shadow); margin-top: 18px; overflow: hidden;
+}
+.detector-head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 14px;
+}
+.detector-head .seg-sm { margin-left: auto; }
+.seg-sm .seg-btn { padding: 6px 12px; font-size: 13px; }
+.detector-body { padding: 16px; }
+.detector-empty { color: var(--muted); font-size: 14px; }
+
+.gauge-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.gauge {
+  --val: 0; --col: var(--accent);
+  width: 96px; height: 96px; border-radius: 50%; flex: none;
+  background: conic-gradient(var(--col) calc(var(--val) * 1%), var(--border) 0);
+  display: grid; place-items: center; position: relative;
+}
+.gauge::after {
+  content: ""; position: absolute; inset: 10px; border-radius: 50%; background: var(--panel);
+}
+.gauge span { position: relative; z-index: 1; font-size: 22px; font-weight: 700; }
+.gauge small { position: relative; z-index: 1; font-size: 11px; color: var(--muted); }
+.gauge-info { flex: 1; min-width: 200px; }
+.gauge-label { font-size: 18px; font-weight: 700; }
+.gauge-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+.signals { list-style: none; margin-top: 14px; display: grid; gap: 8px; }
+.signal { display: grid; grid-template-columns: 150px 1fr 70px; align-items: center; gap: 10px; font-size: 13px; }
+.signal-name { color: var(--text); }
+.signal-detail { color: var(--muted); }
+.signal-bar { height: 6px; border-radius: 4px; background: var(--border); position: relative; grid-column: 1 / -1; }
+.signal-bar > i { position: absolute; inset: 0; width: var(--w, 0%); border-radius: 4px; background: var(--accent); }
+@media (max-width: 560px) { .signal { grid-template-columns: 1fr auto; } }
+
 .disclaimer { text-align: center; color: var(--muted); font-size: 13px; max-width: 640px; margin: 18px auto 0; }
 
 @media (max-width: 720px) {

@@ -93,5 +93,30 @@
 
     output.value = result;
     outWords.textContent = wc(result);
+
+    // Auto-check the humanized output so the user sees the before/after drop.
+    detectTarget = "output";
+    syncDetectTabs();
+    runDetect();
   };
+
+  // ---- Detector ----
+  let detectTarget = "input";
+  const detectorBody = $("detectorBody");
+
+  function syncDetectTabs() {
+    document.querySelectorAll(".seg-sm .seg-btn").forEach((b) =>
+      b.classList.toggle("active", b.dataset.target === detectTarget)
+    );
+  }
+  function runDetect() {
+    const text = (detectTarget === "output" ? output.value : input.value).trim();
+    const result = window.Detector.detect(text);
+    window.renderDetector(detectorBody, result);
+  }
+
+  document.querySelectorAll(".seg-sm .seg-btn").forEach((b) => {
+    b.onclick = () => { detectTarget = b.dataset.target; syncDetectTabs(); runDetect(); };
+  });
+  $("detectBtn").onclick = runDetect;
 })();

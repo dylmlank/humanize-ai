@@ -63,6 +63,20 @@
       </div>
     </div>
 
+    <section id="detectorCard" class="detector">
+      <div class="detector-head">
+        <span>AI Detector</span>
+        <div class="seg seg-sm" role="tablist" aria-label="Detect target">
+          <button class="seg-btn active" data-target="input">Your text</button>
+          <button class="seg-btn" data-target="output">Humanized</button>
+        </div>
+        <button id="detectBtn" class="ghost-btn">Check</button>
+      </div>
+      <div id="detectorBody" class="detector-body">
+        <p class="detector-empty">Run a check to estimate how AI-like the text reads.</p>
+      </div>
+    </section>
+
     <div class="action-row">
       <button id="humanizeBtn" class="primary-btn">Humanize</button>
     </div>
@@ -71,6 +85,8 @@
   </main>
 
   <script src="humanize.js"></script>
+  <script src="detector.js"></script>
+  <script src="render-detector.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

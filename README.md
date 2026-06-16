@@ -24,6 +24,8 @@ Or just open `index.html` directly — the local rewriter works fully offline (o
 
 **Modes:** Balanced · Simple · Casual
 
+**AI Detector (`detector.js`)** — heuristic scorer (0–100) with a breakdown. Signals: sentence-length burstiness, AI-cliché density, vocabulary variety, hedging/filler, contraction use, em-dash regularity. Check your text *or* the humanized output — humanizing typically drops the score sharply. It's an estimate, not a verdict.
+
 **Deep rewrite (AI)** — optional toggle. Proxies through OpenRouter free models with 429 fallback:
 
 ```bash
