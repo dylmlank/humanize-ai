@@ -43,9 +43,18 @@ const PROMPTS = {
 const SUMMARIZE_PROMPT =
   "Read the text and list its key points as terse bullet notes — facts and " +
   "claims only, no style, no full sentences. Output only the bullets.";
+// These rules target the signals trusted detectors actually measure: low
+// perplexity (predictable word choice) and low burstiness (uniform rhythm). The
+// burstiness instruction is FIRST and most specific because it's the dominant
+// tell — every other rule is secondary to breaking the flat AI rhythm.
 const REGENERATE_RULES =
-  " Write like a real person, not an AI. Vary sentence length sharply (mix very " +
-  "short sentences with longer ones). Use contractions. Be concrete and direct. " +
+  " Write like a real person, not an AI. MOST IMPORTANT: vary sentence length " +
+  "dramatically. Put a very short sentence (3 to 6 words) next to a long one. " +
+  "Some sentences should be punchy fragments; others can run long. Never let " +
+  "several sentences in a row have similar length. " +
+  "Use specific, concrete, sometimes unexpected words instead of the safe, " +
+  "generic phrasing an AI defaults to. Use contractions. Start sentences " +
+  "differently each time. " +
   "Do NOT use: hyphens or dashes, the words 'leverage/delve/foster/seamless/" +
   "robust/pivotal/realm/landscape/crucial', phrases like 'in today's world', " +
   "'it is important to note', 'plays a role', 'not just X but Y', or enumerated " +
@@ -155,10 +164,12 @@ const server = http.createServer(async (req, res) => {
       // harder each round so resistant text gets broken up more aggressively.
       let sys = REGENERATE_PROMPTS[mode] || REGENERATE_PROMPTS.balanced;
       if (round > 0) {
-        sys += " The previous attempt STILL read like AI. Be far more aggressive: " +
-          "break uniform rhythm hard (some 3-word sentences, some long), start " +
-          "sentences differently, use plain everyday words, and add natural " +
-          "contractions.";
+        sys += " The previous attempt STILL read like AI. The detector still sees " +
+          "uniform sentence rhythm and predictable word choice. Be far more " +
+          "aggressive: smash the even rhythm (some 3-word sentences, some 25-word " +
+          "ones, never two similar lengths in a row), start every sentence " +
+          "differently, choose vivid specific words over safe generic ones, and " +
+          "add natural contractions.";
       }
       if (feedback) {
         sys += ` Specifically fix these AI tells the detector still found: ${String(feedback).slice(0, 200)}.`;

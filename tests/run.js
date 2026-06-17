@@ -7,7 +7,10 @@ const path = require("path");
 const fs = require("fs");
 
 global.window = global;
+global.UNIGRAMS = require(path.join(__dirname, "..", "unigrams.json"));
+global.BIGRAMS = require(path.join(__dirname, "..", "bigrams.json"));
 require(path.join(__dirname, "..", "predictability.js"));
+require(path.join(__dirname, "..", "perplexity.js"));
 require(path.join(__dirname, "..", "humanize.js"));
 require(path.join(__dirname, "..", "detector.js"));
 
