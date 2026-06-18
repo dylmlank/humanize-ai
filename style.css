@@ -273,6 +273,10 @@ textarea {
 }
 .hl-human { background: transparent; box-shadow: none; }
 
+/* Notes panel — the intermediate "summary to notes" step shown to the user. */
+.notes-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.notes-list li { font-size: 13px; color: var(--text); line-height: 1.5; }
+
 /* Learnings panel — the retrospective's accumulated knowledge. */
 .learn-group { margin-bottom: 14px; }
 .learn-group > b { font-size: 13px; display: block; margin-bottom: 6px; }

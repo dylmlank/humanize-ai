@@ -108,8 +108,10 @@
     if (!res.ok) throw new Error("LLM unavailable");
     const data = await res.json();
     if (!data.text) throw new Error("Empty response");
-    // Finishing pass: apply our deterministic guidelines on top of the LLM draft.
-    return window.Humanizer.humanize(data.text, mode);
+    // Finishing pass: light word-level cleanup ONLY (finish, not humanize) so we
+    // don't re-flatten the rhythm the regeneration just created. Returns both the
+    // final text and the notes, so the UI can show what was extracted.
+    return { text: window.Humanizer.finish(data.text, mode), notes: data.notes };
   }
 
   // (systemPrompt, userText) => rewritten text, via the server proxy.
@@ -157,59 +159,73 @@
     strip.hidden = false;
   }
 
+  // Loop-compatible regenerate: the loop expects a function returning the final
+  // TEXT (string). We unwrap llmRegenerate's {text, notes} and stash the latest
+  // notes so the UI can display them.
+  let lastNotes = "";
+  async function regenerateForLoop(text, mode, feedback, round) {
+    const r = await llmRegenerate(text, mode, feedback, round);
+    if (r && r.notes) lastNotes = r.notes;
+    return r ? r.text : "";
+  }
+
   const btn = $("humanizeBtn");
   btn.onclick = async () => {
     const text = input.value.trim();
     if (!text) { setStatus("Paste some text first", 2000); return; }
 
-    const useLLM = $("useLLM").checked;
-    const loop = $("untilUndetectable").checked;
+    // Optional escape hatch: "Fast local rewrite" forces the old rule-only pass
+    // (no API call). Default behavior is the deep summarize -> notes -> rewrite.
+    const fastLocal = $("fastLocal") && $("fastLocal").checked;
     btn.disabled = true;
+    lastNotes = "";
     let result;
 
     try {
-      if (loop) {
-        const regen = $("regenerate").checked && useLLM;
-        const res = await window.loopHumanize(text, {
-          mode,
-          target: 30,
-          maxRounds: useLLM ? 5 : 3,
-          // Regenerate-loop (rebuild from meaning each round) when "Rewrite from
-          // scratch" is on; otherwise single-pass LLM rewrite; else local-only.
-          regenerate: regen ? llmRegenerate : null,
-          llm: useLLM && !regen ? llmRewrite : null,
-          onRound: (info) => {
-            setOutput(info.text, text);
-            setStatus(`Round ${info.round + 1} · ${info.via} · score ${info.score}`);
-          },
-        });
-        result = res.text;
-        setStatus(
-          res.hitTarget
-            ? `Undetectable ✓ (${res.score}% AI, ${res.rounds} rounds)`
-            : `Best effort: ${res.score}% AI after ${res.rounds} rounds`,
-          4000
-        );
-      } else {
+      if (fastLocal) {
         result = window.Humanizer.humanize(text, mode);
-        if (useLLM) {
-          const regen = $("regenerate").checked;
-          setStatus(regen ? "Summarizing & rewriting…" : "Deep rewriting…");
-          try {
-            result = regen ? await llmRegenerate(text, mode) : await llmHumanize(text, mode);
-          } catch { setStatus("AI unavailable — used local rewrite", 2500); }
+        setStatus("Done (fast local rewrite)", 1500);
+      } else {
+        // DEFAULT: summarize -> notes -> regenerate from scratch, looped against
+        // the detector so it keeps rewriting until it reads human (or max rounds).
+        // This destroys the AI's sentence skeleton entirely, which rule swaps
+        // alone can't do. Falls back to local rules + a warning if the API is
+        // unreachable.
+        setStatus("Summarizing to notes & rewriting…");
+        try {
+          const res = await window.loopHumanize(text, {
+            mode,
+            target: 30,
+            maxRounds: 5,
+            regenerate: regenerateForLoop,
+            onRound: (info) => {
+              if (info.text) setOutput(info.text, text);
+              setStatus(`Round ${info.round + 1} · ${info.via} · ${info.score}% AI`);
+            },
+          });
+          result = res.text;
+          setStatus(
+            res.hitTarget
+              ? `Undetectable ✓ (${res.score}% AI, ${res.rounds} rounds)`
+              : `Best effort: ${res.score}% AI after ${res.rounds} rounds`,
+            4000
+          );
+        } catch (e) {
+          // API down: produce a local rewrite so the user always gets output.
+          result = window.Humanizer.humanize(text, mode);
+          setStatus("⚠ AI unreachable — deep rewrite needs the server running. Used fast local rewrite.", 5000);
         }
-        setStatus("Done", 1500);
       }
     } catch (e) {
       if (!result) result = window.Humanizer.humanize(text, mode);
-      setStatus("AI unavailable — used local rewrite", 2500);
+      setStatus("⚠ Rewrite error — used fast local rewrite.", 4000);
     } finally {
       btn.disabled = false;
     }
 
     setOutput(result, text);
     showScoreStrip(text, result);
+    renderNotes();
 
     // Auto-check the humanized output so the user sees the before/after drop.
     detectTarget = "output";
@@ -217,9 +233,24 @@
     runDetect();
 
     // Retrospective: reflect on this run and learn from it (non-blocking).
-    // Use the richer LLM reflection only when "Deep rewrite (AI)" is enabled.
-    runRetrospective(text, result, $("useLLM").checked);
+    // Use the richer LLM reflection unless the user forced fast-local (no API).
+    runRetrospective(text, result, !fastLocal);
   };
+
+  // Show the extracted notes (the intermediate "summary" step) so the user can
+  // see what the rewrite was rebuilt from. Hidden when there are none (e.g.
+  // fast-local or API down).
+  function renderNotes() {
+    const card = $("notesCard"), body = $("notesBody");
+    if (!card || !body) return;
+    if (!lastNotes) { card.hidden = true; return; }
+    const items = lastNotes.split(/\n+/).map((l) => l.replace(/^[-*]\s*/, "").trim())
+      .filter(Boolean);
+    if (!items.length) { card.hidden = true; return; }
+    body.innerHTML = `<ul class="notes-list">${items
+      .map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`;
+    card.hidden = false;
+  }
 
   // ---- Retrospective: learn from each run ----
   // After every humanize, reflect on what the detector still flagged in the

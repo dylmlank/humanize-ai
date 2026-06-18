@@ -38,32 +38,46 @@ const PROMPTS = {
   casual: "Rewrite in a casual, conversational human tone with contractions." + RULES,
 };
 
-// "Regenerate from scratch" — extract the meaning, then rewrite fresh so the
-// AI's sentence skeleton (itself a tell) is gone. Two prompts, run in sequence.
+// "Regenerate from scratch" — extract the meaning into styleless notes, then
+// rewrite fresh from ONLY those notes so the AI's original sentence skeleton
+// (itself the strongest tell) is gone. Two prompts, run in sequence.
+//
+// The summarize step is the heart of the approach: by reducing the text to bare
+// fact fragments we strip ALL of the original phrasing, rhythm, transitions, and
+// structure. The regenerate step then has nothing of the AI's fingerprint left
+// to copy — it must build sentences from scratch. We force the notes to be terse
+// fragments (no full sentences, no connectors) so none of the source wording
+// survives into the rewrite.
 const SUMMARIZE_PROMPT =
-  "Read the text and list its key points as terse bullet notes — facts and " +
-  "claims only, no style, no full sentences. Output only the bullets.";
+  "Reduce the text to its bare facts as a flat list of short note fragments. " +
+  "Rules: each note is 2 to 7 words, telegraphic style (like jotted notes), no " +
+  "full sentences, no transitions, no adjectives that aren't load-bearing, no " +
+  "opinions, no formatting words. Capture every distinct fact, claim, name, " +
+  "number, and step. Drop all of the original phrasing and sentence structure. " +
+  "Output ONLY the notes, one per line, each starting with '- '.";
 // These rules target the signals trusted detectors actually measure: low
 // perplexity (predictable word choice) and low burstiness (uniform rhythm). The
 // burstiness instruction is FIRST and most specific because it's the dominant
 // tell — every other rule is secondary to breaking the flat AI rhythm.
 const REGENERATE_RULES =
-  " Write like a real person, not an AI. MOST IMPORTANT: vary sentence length " +
-  "dramatically. Put a very short sentence (3 to 6 words) next to a long one. " +
-  "Some sentences should be punchy fragments; others can run long. Never let " +
-  "several sentences in a row have similar length. " +
+  " You are given NOTES, not prose — build the writing yourself from the facts. " +
+  "MOST IMPORTANT: vary sentence length dramatically. Put a very short sentence " +
+  "(3 to 6 words) next to a long one. Some sentences should be punchy fragments; " +
+  "others can run long. Never let several sentences in a row have similar length. " +
   "Use specific, concrete, sometimes unexpected words instead of the safe, " +
-  "generic phrasing an AI defaults to. Use contractions. Start sentences " +
-  "differently each time. " +
+  "generic phrasing an AI defaults to. Use contractions. Start every sentence " +
+  "differently. Reorder the points if it reads more naturally — you do not have " +
+  "to follow the note order. " +
   "Do NOT use: hyphens or dashes, the words 'leverage/delve/foster/seamless/" +
   "robust/pivotal/realm/landscape/crucial', phrases like 'in today's world', " +
   "'it is important to note', 'plays a role', 'not just X but Y', or enumerated " +
   "'First,/Second,/Finally,' scaffolding. No formulaic intro or conclusion. " +
-  "Just write the content naturally. Output only the final text.";
+  "Cover all the facts in the notes but keep it about the same length as the " +
+  "original. Just write the content naturally. Output only the final text.";
 const REGENERATE_PROMPTS = {
-  balanced: "Using these notes, write a natural, human paragraph." + REGENERATE_RULES,
-  simple: "Using these notes, write in plain, simple language a person would use." + REGENERATE_RULES,
-  casual: "Using these notes, write in a casual, conversational voice." + REGENERATE_RULES,
+  balanced: "Write a natural, human paragraph from these notes." + REGENERATE_RULES,
+  simple: "Write plainly, in simple language a real person would use, from these notes." + REGENERATE_RULES,
+  casual: "Write in a casual, conversational human voice from these notes." + REGENERATE_RULES,
 };
 
 const MIME = {

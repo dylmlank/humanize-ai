@@ -22,7 +22,7 @@
   <main class="wrap">
     <section class="hero">
       <h1>Turn AI text into <span class="accent">natural human writing</span></h1>
-      <p class="sub">Paste AI-generated content and rewrite it to read naturally — clearer, simpler, less robotic.</p>
+      <p class="sub">Paste AI text. It's reduced to plain notes, then rewritten from scratch — destroying the AI sentence structure detectors look for.</p>
     </section>
 
     <div class="controls">
@@ -31,17 +31,9 @@
         <button class="seg-btn" data-mode="simple">Simple</button>
         <button class="seg-btn" data-mode="casual">Casual</button>
       </div>
-      <label class="toggle">
-        <input type="checkbox" id="useLLM" />
-        <span>Deep rewrite (AI)</span>
-      </label>
-      <label class="toggle" title="Summarize the text, then rewrite it from scratch following the anti-detection guidelines. Breaks the AI sentence structure entirely. Requires Deep rewrite.">
-        <input type="checkbox" id="regenerate" />
-        <span>Rewrite from scratch</span>
-      </label>
-      <label class="toggle">
-        <input type="checkbox" id="untilUndetectable" />
-        <span>Loop until undetectable</span>
+      <label class="toggle" title="Force the offline rule-based rewrite (no API call). The default deep rewrite summarizes your text to notes, then rewrites from scratch to strip AI structure — and needs the server running.">
+        <input type="checkbox" id="fastLocal" />
+        <span>Fast local rewrite</span>
       </label>
       <label class="toggle">
         <input type="checkbox" id="showDiff" checked />
@@ -89,6 +81,14 @@
       </div>
       <div class="score-delta" id="scoreDelta"></div>
     </div>
+
+    <section id="notesCard" class="detector" hidden>
+      <div class="detector-head">
+        <span>📝 Notes extracted from your text</span>
+        <span class="meta" style="margin-left:auto">the rewrite is built from these, not the original</span>
+      </div>
+      <div id="notesBody" class="detector-body"></div>
+    </section>
 
     <section id="detectorCard" class="detector">
       <div class="detector-head">
