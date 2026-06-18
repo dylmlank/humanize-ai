@@ -195,12 +195,14 @@
         try {
           const res = await window.loopHumanize(text, {
             mode,
-            target: 30,
-            maxRounds: 5,
+            target: 10,
+            maxRounds: 6,
             regenerate: regenerateForLoop,
             onRound: (info) => {
-              if (info.text) setOutput(info.text, text);
-              setStatus(`Round ${info.round + 1} · ${info.via} · ${info.score}% AI`);
+              // Show the best result so far, not just the latest (which may be a
+              // bad roll), so the panel never flashes a worse version.
+              if (info.bestText) setOutput(info.bestText, text);
+              setStatus(`Round ${info.round + 1} · best ${info.bestScore}% AI`);
             },
           });
           result = res.text;

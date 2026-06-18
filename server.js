@@ -67,10 +67,13 @@ const REGENERATE_RULES =
   "1) Vary sentence length HARD: include at least one very short sentence (under " +
   "6 words) and at least one long one (over 30 words); never put two similar " +
   "lengths in a row. " +
-  "2) Choose specific, slightly unexpected words over the obvious safe one — but " +
-  "stay natural and correct. " +
-  "3) Use contractions. Start a sentence with 'And', 'But', or 'So' once. Add one " +
-  "short opinionated aside. " +
+  "2) Use plain, everyday words. Prefer short common words over long formal or " +
+  "Latinate ones (say 'use' not 'utilize', 'set up' not 'infrastructure' where " +
+  "you can, 'grow' not 'scale'). Pick the specific, slightly unexpected word over " +
+  "the safe generic one, but keep it simple and correct. " +
+  "3) Use contractions throughout — at least three (it's, don't, you'll, they're, " +
+  "that's). This is required. Start a sentence with 'And', 'But', or 'So' once. " +
+  "Add one short opinionated aside. " +
   "4) Reorder the points freely if it flows better; you don't have to follow the " +
   "note order. " +
   "NEVER use these words: delve, underscore, showcase, intricate, meticulous, " +
@@ -101,8 +104,12 @@ const MIME = {
 // AUROC from ~0.95 to near zero. We use a hot preset for the rewrite, but keep
 // the summarize step cool so the extracted notes stay accurate.
 const SAMPLING = {
-  // Rewrite/regenerate: hot, with penalties to break the flat AI token stream.
-  human: { temperature: 1.15, top_p: 0.98, frequency_penalty: 0.5, presence_penalty: 0.4 },
+  // Rewrite/regenerate: warm, with light penalties to break the flat AI token
+  // stream WITHOUT tipping into incoherence. Tested higher (1.15 + 0.5 penalty)
+  // and it produced odd, lower-quality text that sometimes read MORE artificial;
+  // ~1.05 with gentle penalties is the sweet spot — varied word choice, still
+  // fluent.
+  human: { temperature: 1.05, top_p: 0.97, frequency_penalty: 0.3, presence_penalty: 0.2 },
   // Summarize: cool and faithful — we want correct notes, not creativity.
   precise: { temperature: 0.3, top_p: 0.9 },
 };
@@ -216,7 +223,7 @@ const server = http.createServer(async (req, res) => {
       // on stubborn text (within a quality-safe ceiling).
       const regenSampling = {
         ...SAMPLING.human,
-        temperature: Math.min(1.15 + round * 0.08, 1.35),
+        temperature: Math.min(1.05 + round * 0.05, 1.2),
       };
       const out = await callOpenRouter(notes, sys, regenSampling);
       res.writeHead(200, { "Content-Type": "application/json" });
