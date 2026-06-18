@@ -59,21 +59,29 @@ const SUMMARIZE_PROMPT =
 // perplexity (predictable word choice) and low burstiness (uniform rhythm). The
 // burstiness instruction is FIRST and most specific because it's the dominant
 // tell — every other rule is secondary to breaking the flat AI rhythm.
+// Encodes what actually moves real detectors: hard sentence-length variance
+// (burstiness), lower-probability word choice (perplexity), and removal of the
+// structural + lexical fingerprints detectors and humans flag.
 const REGENERATE_RULES =
   " You are given NOTES, not prose — build the writing yourself from the facts. " +
-  "MOST IMPORTANT: vary sentence length dramatically. Put a very short sentence " +
-  "(3 to 6 words) next to a long one. Some sentences should be punchy fragments; " +
-  "others can run long. Never let several sentences in a row have similar length. " +
-  "Use specific, concrete, sometimes unexpected words instead of the safe, " +
-  "generic phrasing an AI defaults to. Use contractions. Start every sentence " +
-  "differently. Reorder the points if it reads more naturally — you do not have " +
-  "to follow the note order. " +
-  "Do NOT use: hyphens or dashes, the words 'leverage/delve/foster/seamless/" +
-  "robust/pivotal/realm/landscape/crucial', phrases like 'in today's world', " +
-  "'it is important to note', 'plays a role', 'not just X but Y', or enumerated " +
-  "'First,/Second,/Finally,' scaffolding. No formulaic intro or conclusion. " +
-  "Cover all the facts in the notes but keep it about the same length as the " +
-  "original. Just write the content naturally. Output only the final text.";
+  "1) Vary sentence length HARD: include at least one very short sentence (under " +
+  "6 words) and at least one long one (over 30 words); never put two similar " +
+  "lengths in a row. " +
+  "2) Choose specific, slightly unexpected words over the obvious safe one — but " +
+  "stay natural and correct. " +
+  "3) Use contractions. Start a sentence with 'And', 'But', or 'So' once. Add one " +
+  "short opinionated aside. " +
+  "4) Reorder the points freely if it flows better; you don't have to follow the " +
+  "note order. " +
+  "NEVER use these words: delve, underscore, showcase, intricate, meticulous, " +
+  "commendable, leverage, foster, seamless, robust, crucial, comprehensive, " +
+  "tapestry, realm, testament, multifaceted, navigate, boast, vibrant, pivotal. " +
+  "NO em-dashes or hyphens. NO three-item lists (use two or four). NO 'not only X " +
+  "but also Y' or 'it's not just X, it's Y'. NO 'serves as / acts as' (just say " +
+  "'is'). NO 'Moreover/Furthermore/Additionally'. NO formulaic intro or closer " +
+  "like 'in conclusion' or 'the future looks bright'. NO 'First,/Second,/Finally,' " +
+  "scaffolding. Cover all the facts and keep about the same length. Output only " +
+  "the final text.";
 const REGENERATE_PROMPTS = {
   balanced: "Write a natural, human paragraph from these notes." + REGENERATE_RULES,
   simple: "Write plainly, in simple language a real person would use, from these notes." + REGENERATE_RULES,
@@ -85,7 +93,22 @@ const MIME = {
   ".json": "application/json",
 };
 
-async function callOpenRouter(text, sys) {
+// Sampling presets. The biggest lever for evading statistical detectors is
+// sampling config, not prompt wording: a higher temperature + repetition/
+// frequency penalties push token choices toward lower-probability (higher
+// perplexity) continuations, which is exactly what detectors measure. Research
+// (arXiv:2510.13681) found temp ~1.1 with a repetition penalty drops Binoculars
+// AUROC from ~0.95 to near zero. We use a hot preset for the rewrite, but keep
+// the summarize step cool so the extracted notes stay accurate.
+const SAMPLING = {
+  // Rewrite/regenerate: hot, with penalties to break the flat AI token stream.
+  human: { temperature: 1.15, top_p: 0.98, frequency_penalty: 0.5, presence_penalty: 0.4 },
+  // Summarize: cool and faithful — we want correct notes, not creativity.
+  precise: { temperature: 0.3, top_p: 0.9 },
+};
+
+async function callOpenRouter(text, sys, sampling) {
+  const samp = sampling || SAMPLING.human;
   let lastErr = "no models";
   for (const model of MODELS) {
     try {
@@ -101,7 +124,7 @@ async function callOpenRouter(text, sys) {
             { role: "system", content: sys },
             { role: "user", content: text },
           ],
-          temperature: 0.9,
+          ...samp,
         }),
       });
       if (r.status === 429) { lastErr = "rate limited"; continue; }
@@ -173,7 +196,8 @@ const server = http.createServer(async (req, res) => {
     try {
       const { text, mode, feedback, round } = JSON.parse((await readBody(req)) || "{}");
       if (!text) throw new Error("no text");
-      const notes = await callOpenRouter(text, SUMMARIZE_PROMPT);
+      // Summarize cool/faithful so the notes are accurate.
+      const notes = await callOpenRouter(text, SUMMARIZE_PROMPT, SAMPLING.precise);
       // Escalate when looping: feed back which AI tells survived, and push
       // harder each round so resistant text gets broken up more aggressively.
       let sys = REGENERATE_PROMPTS[mode] || REGENERATE_PROMPTS.balanced;
@@ -188,7 +212,13 @@ const server = http.createServer(async (req, res) => {
       if (feedback) {
         sys += ` Specifically fix these AI tells the detector still found: ${String(feedback).slice(0, 200)}.`;
       }
-      const out = await callOpenRouter(notes, sys);
+      // Regenerate hot, and turn the heat UP each round to push perplexity higher
+      // on stubborn text (within a quality-safe ceiling).
+      const regenSampling = {
+        ...SAMPLING.human,
+        temperature: Math.min(1.15 + round * 0.08, 1.35),
+      };
+      const out = await callOpenRouter(notes, sys, regenSampling);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ text: out, notes }));
     } catch (e) {
